@@ -33,7 +33,6 @@ async function downloadCSV(url, label) {
     columns: true,
     skip_empty_lines: true,
     trim: true,
-    delimiter: '\t',  // MTR 用 Tab 分隔！
   });
   
   console.log(`     解析到 ${parsed.length} 行`);
