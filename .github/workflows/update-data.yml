@@ -1,8 +1,9 @@
-name: 每日更新港鐵巴士資料
+name: 每月更新港鐵巴士資料
 
 on:
   schedule:
-    - cron: '0 22 * * *'
+    # 每月 1 號 UTC 17:00 = 香港時間 01:00
+    - cron: '0 17 1 * *'
   workflow_dispatch:
 
 jobs:
@@ -31,5 +32,5 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add data/
-          git diff --staged --quiet || git commit -m "🤖 自動更新港鐵巴士資料"
+          git diff --staged --quiet || git commit -m "🤖 每月自動更新港鐵巴士資料"
           git push
