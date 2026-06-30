@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>港鐵巴士 ETA</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+    }
+
+    /* === 頂部 === */
+    .header {
+      background: linear-gradient(135deg, #1a237e, #0d47a1);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    .header h1 {
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    .header .subtitle {
+      font-size: 13px;
+      opacity: 0.85;
+      margin-top: 4px;
+    }
+
+    /* === 主容器 === */
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    /* === 搜尋框 === */
+    .search-box {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #f5f5f5;
+      padding: 12px 0;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      font-size: 16px;
+      background: white;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .search-box input:focus {
+      border-color: #1a237e;
+      box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.1);
+      outline: none;
+    }
+
+    /* === 車站列表 === */
+    .stop-list {
+      list-style: none;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .stop-list li {
+      padding: 14px 16px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background 0.15s;
+    }
+
+    .stop-list li:last-child {
+      border-bottom: none;
+    }
+
+    .stop-list li:hover {
+      background: #f5f7ff;
+    }
+
+    .stop-list li.selected {
+      background: #e8eaf6;
+      border-left: 3px solid #1a237e;
+    }
+
+    .stop-list .stop-name {
+      font-weight: 500;
+      color: #212121;
+    }
+
+    .stop-list .stop-id {
+      font-size: 12px;
+      color: #9e9e9e;
+      font-family: monospace;
+    }
+
+    /* === ETA 結果 === */
+    .eta-section {
+      margin-top: 16px;
+    }
+
+    .eta-card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .eta-card .route-info {
+      flex: 1;
+    }
+
+    .eta-card .route-number {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1a237e;
+    }
+
+    .eta-card .route-dest {
+      font-size: 14px;
+      color: #616161;
+      margin-top: 2px;
+    }
+
+    .eta-card .eta-time {
+      font-size: 22px;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .eta-time.soon {
+      color: #e53935;
+    }
+
+    .eta-time.waiting {
+      color: #1a237e;
+    }
+
+    /* === 狀態訊息 === */
+    .status-message {
+      text-align: center;
+      padding: 40px 20px;
+      color: #9e9e9e;
+    }
+
+    .status-message .icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+    }
+
+    .error-message {
+      background: #ffebee;
+      color: #c62828;
+      padding: 16px;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    /* === 頁尾 === */
+    .footer {
+      text-align: center;
+      padding: 20px;
+      color: #bdbdbd;
+      font-size: 12px;
+    }
+
+    /* === 載入動畫 === */
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #e0e0e0;
+      border-top-color: #1a237e;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 頂部 -->
+  <div class="header">
+    <h1>🚌 港鐵巴士 ETA</h1>
+    <div class="subtitle">MTR Bus Estimated Time of Arrival</div>
+  </div>
+
+  <!-- 主容器 -->
+  <div class="container">
+
+    <!-- 搜尋框 -->
+    <div class="search-box">
+      <input
+        type="text"
+        id="searchInput"
+        placeholder="🔍 搜尋車站名稱或編號..."
+        autocomplete="off"
+      />
+    </div>
+
+    <!-- 車站列表 -->
+    <ul class="stop-list" id="stopList">
+      <li class="status-message">
+        <div>⏳ 載入車站資料中...</div>
+      </li>
+    </ul>
+
+    <!-- ETA 顯示區 -->
+    <div class="eta-section" id="etaSection"></div>
+
+  </div>
+
+  <!-- 頁尾 -->
+  <div class="footer" id="footer">
+    資料載入中...
+  </div>
+
+  <!-- ============================================ -->
+  <!-- JavaScript                                   -->
+  <!-- ============================================ -->
+  <script>
+  (function() {
+    'use strict';
+
+    // === DOM 元素 ===
+    const searchInput = document.getElementById('searchInput');
+    const stopList = document.getElementById('stopList');
+    const etaSection = document.getElementById('etaSection');
+    const footer = document.getElementById('footer');
+
+    // === 資料 ===
+    let allStops = [];
+    let routesData = {};
+    let currentStopId = null;
+
+    // === 初始化 ===
+    async function init() {
+      try {
+        // 平行載入三個 JSON
+        const [stopsRes, routesRes, versionRes] = await Promise.all([
+          fetch('./data/stops.json'),
+          fetch('./data/routes.json'),
+          fetch('./data/version.json'),
+        ]);
+
+        if (!stopsRes.ok || !routesRes.ok) {
+          throw new Error('資料檔案載入失敗');
+        }
+
+        allStops = await stopsRes.json();
+        routesData = await routesRes.json();
+
+        // 顯示版本資訊
+        if (versionRes.ok) {
+          const version = await versionRes.json();
+          footer.textContent = `資料更新時間：${version.updatedDisplay}`;
+        } else {
+          footer.textContent = `共 ${allStops.length} 個車站`;
+        }
+
+        // 顯示所有車站
+        renderStops(allStops);
+      } catch (error) {
+        console.error('初始化失敗:', error);
+        stopList.innerHTML = '<li class="error-message">❌ 無法載入車站資料，請檢查網絡連線後重新整理</li>';
+        footer.textContent = '資料載入失敗';
+      }
+    }
+
+    // === 渲染車站列表 ===
+    function renderStops(stops) {
+      if (stops.length === 0) {
+        stopList.innerHTML = '<li class="status-message">找不到符合嘅車站</li>';
+        return;
+      }
+
+      stopList.innerHTML = stops.map(stop => `
+        <li class="${stop.id === currentStopId ? 'selected' : ''}" data-stop-id="${stop.id}">
+          <span class="stop-name">${escapeHtml(stop.name)}</span>
+          <span class="stop-id">${escapeHtml(stop.id)}</span>
+        </li>
+      `).join('');
+
+      // 綁定點擊事件
+      stopList.querySelectorAll('li[data-stop-id]').forEach(li => {
+        li.addEventListener('click', () => {
+          const stopId = li.dataset.stopId;
+          selectStop(stopId);
+        });
+      });
+    }
+
+    // === 搜尋車站 ===
+    function searchStops(query) {
+      const q = query.toLowerCase().trim();
+      if (!q) return allStops;
+
+      return allStops.filter(stop =>
+        stop.id.toLowerCase().includes(q) ||
+        stop.name.toLowerCase().includes(q)
+      ).slice(0, 50); // 最多顯示 50 個結果
+    }
+
+    // === 選擇車站 ===
+    async function selectStop(stopId) {
+      currentStopId = stopId;
+
+      // 更新列表選取狀態
+      renderStops(searchStops(searchInput.value));
+
+      // 顯示載入中
+      etaSection.innerHTML = `
+        <div class="status-message">
+          <div class="spinner"></div>
+          <div style="margin-top: 12px;">查詢班次中...</div>
+        </div>
+      `;
+
+      // 獲取該站路線
+      const routes = routesData[stopId] || [];
+
+      if (routes.length === 0) {
+        etaSection.innerHTML = '<div class="status-message">此車站暫無路線資料</div>';
+        return;
+      }
+
+      // 查詢每條路線嘅 ETA
+      const etaResults = await Promise.all(
+        routes.map(async ([routeNo, , destination]) => {
+          try {
+            const response = await fetch(
+              'https://rt.data.gov.hk/v1/transport/mtr/bus/getSchedule',
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  language: 'zh',
+                  routeName: routeNo,
+                }),
+              }
+            );
+
+            if (!response.ok) {
+              return { routeNo, destination, times: [] };
+            }
+
+            const data = await response.json();
+            const busStop = (data.busStop || []).find(
+              stop => stop.busStopId === stopId
+            );
+
+            if (!busStop || !busStop.bus) {
+              return { routeNo, destination, times: [] };
+            }
+
+            // 提取時間（秒）
+            const times = busStop.bus
+              .map(bus => {
+                // 嘗試解析文字格式（例如 "約 3 分鐘"）
+                const textMatch = (bus.departureTimeText || '').match(/(\d+)/);
+                if (textMatch) {
+                  return parseInt(textMatch[1], 10) * 60;
+                }
+                // 直接讀取秒數
+                const sec = parseInt(bus.departureTimeInSecond, 10);
+                return isNaN(sec) ? null : sec;
+              })
+              .filter(t => t !== null)
+              .sort((a, b) => a - b)
+              .slice(0, 3); // 最多顯示 3 班
+
+            return { routeNo, destination, times };
+          } catch (error) {
+            console.warn(`查詢路線 ${routeNo} 失敗:`, error);
+            return { routeNo, destination, times: [] };
+          }
+        })
+      );
+
+      // 過濾有班次嘅路線
+      const validResults = etaResults.filter(r => r.times.length > 0);
+
+      // 渲染結果
+      if (validResults.length === 0) {
+        etaSection.innerHTML = '<div class="status-message">😔 暫時沒有即將到站班次</div>';
+        return;
+      }
+
+      etaSection.innerHTML = validResults.map(result => {
+        const nextTime = result.times[0];
+        return `
+          <div class="eta-card">
+            <div class="route-info">
+              <div class="route-number">🚌 ${escapeHtml(result.routeNo)}</div>
+              <div class="route-dest">往 ${escapeHtml(result.destination)}</div>
+            </div>
+            <div class="eta-time ${nextTime < 120 ? 'soon' : 'waiting'}">
+              ${formatTime(nextTime)}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // === 格式化時間 ===
+    function formatTime(seconds) {
+      if (seconds < 0) return '已離開';
+      if (seconds < 30) return '即將到站';
+      if (seconds < 60) return '< 1 分鐘';
+      const minutes = Math.round(seconds / 60);
+      return `${minutes} 分鐘`;
+    }
+
+    // === HTML 轉義 ===
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // === 事件監聽 ===
+    let debounceTimer;
+
+    searchInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        const results = searchStops(searchInput.value);
+        renderStops(results);
+      }, 200);
+    });
+
+    // === 啟動 ===
+    init();
+  })();
+  </script>
+</body>
+</html>

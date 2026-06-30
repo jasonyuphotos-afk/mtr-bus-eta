@@ -1,0 +1,13 @@
+{
+  "name": "mtr-bus-eta",
+  "version": "1.0.0",
+  "description": "港鐵巴士 ETA 靜態網站",
+  "private": true,
+  "scripts": {
+    "update-data": "node scripts/update-data.js"
+  },
+  "devDependencies": {
+    "axios": "^1.7.0",
+    "csv-parse": "^5.5.0"
+  }
+}
